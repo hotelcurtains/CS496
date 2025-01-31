@@ -1,19 +1,17 @@
-# 1-22
-
 - mostly-weekly quizzes on wednesdays
   - one lowest quiz grade dropped
 - one-page cheat sheet for mid/endterms
+
+# OCaml
 - if we run in the utop interpreter:
   ```
   utop # 1;;
   - : int = 1
   ```
-
   - hyphen (-): this variable has no name
   - type (int)
   - value (1)
 
-# 1-24
 ## types, operations
 - think like a business major, they use this language for trading
 - float operations look like `+.`
@@ -64,7 +62,7 @@
   - this means that f is a function that, given a number, returns a function that, given a number, returns a function
   - you can't give more arguments but you can give less and get a function back
 
-# 1-27
+
 ## lists
 - lists: `[1;2;3]`
   - head: `list.hd [1;2;3]` = 1
@@ -124,3 +122,135 @@
   - it is also a higher-order function because it takes a a function as an argument
   - `f (fun i -> i*i) 2` = 16
   - `f (fun i -> i^"!") "hello"` = `"hello!!"`
+
+## exercises
+- define my_and and my_or functions
+```ocaml
+let my_and a b = if a then b else false 
+let my_or a b = if a then true else j
+```
+- provide a
+  - bool: `true`
+  - int * int: `(1,2)`
+  - bool -> int: `fun i -> if i then 3 else 7`
+  - (int * int) -> bool: `fun i -> fst i - snd i > 5`
+  - int -> (int -> int): `fun i j = i + j`
+    - the parentheses are not necessary because the arrows are right-associative
+  - (bool -> bool) * int: `((fun i -> i = true),1)`
+
+## recursive functions
+- recursive factorial:
+  ```ocaml
+  let rec fact n =
+    match n with
+    | 0 -> 1
+    | m -> m * fact(m-1)
+  ```
+  - we must include `rec` or ocaml doesn't know it's recursive and complains
+    - it needs to know to fix its scoping rules
+  - match checks n against the left side of arrows
+    - exactly like a java switch statement
+  - if we run this on -1 it overflows the stack
+  - let's fix it:
+    ```ocaml
+    let rec fact n =
+      match n with
+      | 0 -> 1
+      | m when m > 0 -> m * fact (m-1)
+      | _ -> failwith "fact: negative input"
+    ```
+    - the _ is the wildcard
+    - we generally don't bother with this, we assume the user is competent
+  - we'll instead tell the user:
+    ```ocaml
+    (* [fact n] computes the factorial of [n]
+      Precondition: [n] is positive *)
+    let rec fact n = ...
+    ```
+  - this is contract-based programming
+
+### recursion on lists
+- cons: `1 :: [2;3] = [1;2;3]`
+  - `1 :: 2 :: 3 :: [] = [1;2;3]`
+  - still right associative
+- we use this to make a list with one element repeated
+  ``` ocaml
+  let rec repeat n e = 
+    match n with 
+    | 0 -> []
+    | m -> e :: repeat (m-1) e
+  ```
+- you can turn infix operators into functions by putting them in parentheses, (+)
+- length function:
+  ```ocaml
+  let rec length l : 'a list -> int =
+    match l with
+    | [] -> 0             (*tail*)
+    | h::t -> 1+length t  (*head*)
+  ```
+  - the cons pattern here is a deconstructor, it deconstructs the list into head and tail
+    - `h::t` is anything consecrated with anything; i.e. any head (first item) h connected to any tail (everything else) t
+    - it's like racket
+    - you can't match `[]` against `h::t` because it's got no head *or* tail. a list with one item is ok because it has a head (and an empty tail)
+- check if list l contains element e
+  ```ocaml
+  let rec mem e l =
+    match l with
+    | [] -> false
+    | h::t -> (h=e) || mem e t
+  ```
+  - this is short-circuit evaluation
+    - we might use long-circuit to make sure that the rest of the statement doesn't fail
+- remove duplicates
+  ```ocaml
+  let rec rem_dups l =
+    match l with
+    | [] -> []
+    | h::t ->
+      if mem h t
+      then rem dups t
+      else h:: rem_dups t
+
+  let rec rem_dups' l =
+    match l with
+    | [] -> []
+    | h::t when mem h t -> rem dups' t
+    | h::t -> h:: rem_dups' t
+  ```
+
+### map
+```ocaml
+let rec upperl l =
+  match l with
+  | [] => []
+  | h::t -> upper h :: upperl t
+```
+we can collapse this into:
+```ocaml
+let upperl' l = map upper l
+
+let rec map : ('a -> 'b) -> 'a list -> 'b list =
+  fun f l ->
+  match l with
+  | [] -> []
+  | h::t -> f h :: map f t
+```
+
+### filter
+``` ocaml
+let rec fgtz l =
+  match l with
+  | [] -> []
+  | h::t -> if h>0 then h::fgtz t
+            else fgtz t
+```
+we can transform this into:
+```ocaml
+let is_positive h = h>0
+
+let rec filter p l =
+  match l with
+  | [] -> []
+  | h::t -> if p l then h::flter p t
+            else filter p t
+```
