@@ -58,29 +58,22 @@ apply_transition_function : tf -> state -> symbol -> state option
 *)
 let rec apply_transition_function f st sym =
   match f with
-  | (qi,s,qf) when qi = st && s = sym -> Some qf
-  | _ -> None
+  | [] -> None
+  | (qi,s,qf)::t when qi = st && s = sym -> Some qf
+  | _::t -> apply_transition_function t st sym
 
 (* 
 Determine whether a word is accepted or recognized by a FA.
 accept : fa -> input -> bool
 *)
 let rec accept fa word = 
-  (* tf list -> state -> symbol -> state option*)
-  let rec try_all_tfs fs st sym =
-    match fs with
-    | [] -> None
-    | (qi,s,qf)::t when qi = st && s = sym -> Some qf
-    | _::t -> try_all_tfs t st sym
-  in
   (* state option -> input -> state option *)
   let rec run qo word =
     match word with
     | [] -> qo
     | h::t -> 
-      match try_all_tfs fa.tf qo h with
+      match apply_transition_function fa.tf qo h with
       | Some qf -> run qf t
       | None -> qo
   in List.mem (run fa.start word) fa.final
-
 
