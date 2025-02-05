@@ -41,6 +41,13 @@ let a4 = {states = ["q0";"q1";"q2";"q3"];
          final= ["q2";"q3"]
         }
 
+let empty = {states = ["q0";"q1";"q2";"q3";"q4"];
+            start = "q0";
+            tf = [("q0",'a',"q1"); ("q1",'b',"q1")
+                ; ("q1",'c',"q2");  ("q3",'a',"q4")];
+            final= ["q4"]
+            }
+
 let tf_of_a = [("q0",'a',"q1"); ("q1",'b',"q1"); ("q1",'c',"q2")]
 
 
@@ -76,14 +83,15 @@ accept : fa -> input -> bool
 *)
 let rec accept fa word = 
   (* state option -> input -> state option *)
-  let rec run qo word =
+  let rec run qi word =
     match word with
-    | [] -> qo
+    | [] -> qi
     | h::t -> 
-      match apply_transition_function fa.tf qo h with
+      match apply_transition_function fa.tf qi h with
       | Some qf -> run qf t
-      | None -> qo
-  in List.mem (run fa.start word) fa.final
+      | None -> qi
+  in 
+  List.mem (run fa.start word) fa.final
 
 (* 
 Returns the list of all the states that are successors of the given state
@@ -100,11 +108,61 @@ let rec next tf q l =
 Checks whether the given automaton is deterministic or not.
 is_deterministic : fa -> bool
 *)
-let rec is_deterministic fa =
-  let rec test q = 
+let is_deterministic fa =
+  let rec check_states q = 
     match q with
     | [] -> true
     | (qi,s,qf)::t -> 
-      List.for_all (fun (x,y,z) -> not (x=qi && y=s && z<>qf)) t && test t
+      List.for_all (fun (x,y,z) -> not (x=qi && y=s && z<>qf)) t 
+      && check_states t
   in
-  test fa.tf
+  check_states fa.tf
+
+(*
+Checks is given fa is valid.
+valid: fa -> bool
+*)
+let valid fa = 
+  let rec has_dupes l =
+    match l with
+    | [] -> false
+    | h::t -> List.mem h t || has_dupes t
+  in
+  not (has_dupes fa.states)
+  && List.mem fa.start fa.states 
+  && List.for_all (fun x -> List.mem x fa.states) fa.final
+  && is_deterministic fa
+
+
+(*
+Returns list of states that are reachable from the start state.
+fa -> state list
+*)
+let reachable fa = 
+  let rec find_tfs tf q =
+  match tf with
+  | [] -> []
+  | (qi,_,qf)::t when (qi=q) -> qf::find_tfs t qf
+  | h::t -> find_tfs t q
+  in 
+  List.sort_uniq compare (find_tfs fa.tf fa.start)
+
+(*
+Checks whether a FA accepts at least one word.
+non_empty: fa -> bool
+*)
+let non_empty fa =
+  List.exists (fun x -> List.mem x fa.final) (reachable fa)
+
+(*
+Removes all unreachable (dead) states from a valid FA, also removing them from 
+fa.states, removing transition functions that contain them, and fa.final.
+remove_dead_states: fa -> fa
+*)
+let remove_dead_states fa = 
+  let good = (reachable fa) 
+  in
+  {states = List.filter (fun x -> List.mem x good) fa.states;
+   start = fa.start;
+   tf = List.filter (fun (qi,_,qf) -> List.mem qi good || List.mem qf good) fa.tf;
+   final = List.filter (fun x -> List.mem x good) fa.final}
