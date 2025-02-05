@@ -254,3 +254,141 @@ let rec filter p l =
   | h::t -> if p l then h::flter p t
             else filter p t
 ```
+### fold
+fold a list into a value by summing of all its elements
+```ocaml
+let rec suml l =
+  match l with
+  | [] -> 0
+  | h::t -> h + suml t
+```
+do the same by taking the && of all its elements
+```ocaml
+let rec andl l =
+  match l with
+  | [] -> true
+  | h::t -> h && andl t
+```
+- base case must be true because we're taking the &&; if it were false it would always return false
+concat multiple lists that are within l:
+```ocaml
+let rec concat l =
+  match l with
+  | [] -> []
+  | h::t -> h @ concat t
+```
+and our generic version looks like:
+```ocaml
+let rec foldr a f l =
+  match l with
+  | [] -> a
+  | h::t -> f h (foldr a f t)
+```
+for
+- base case a 
+- binary function f
+- list l to operate on
+it has type `'b -> ('a -> 'b -> 'b) -> 'a list`
+
+there's also the alternate version foldl:
+```ocaml
+let rec foldl a f l =
+  match l with
+  | [] -> a
+  | h::t -> (f a h) f t
+```
+but we'll use foldr because it's slightly better
+
+## variant types
+define your own type:
+```ocaml
+type dow = Mo | Tu | We | Th | Fr | Sat | Su
+
+let next d = 
+  match d with
+  | Mo -> Tu
+  | Tu -> We
+  ...
+
+let is_weekend d =
+  match d with 
+  | Sa | Su -> true
+  | _ -> false
+```
+it's very similar to a python enum
+- Mo, Tu, etc are constructors that take no arguments
+something more complicated:
+```ocaml
+type fla = Van | Cho | Str
+type ic = Cup of fla | Cone of fla*fla | Bucket of fla list
+
+let ic1 = Cup(cho)
+let ic2 = Cone(Cho,Str)
+let ic3 = Bucket([Van;Str;Van;Cho])
+
+let cost i =
+  match i with
+  | Cup(_) -> 1
+  | Cone(_,_) -> 2
+  | Bucket(_) -> 5
+
+let is_boring i =
+  match i with
+  | Cup(Van) -> true
+  | Cone(Van,Van) -> true
+  | Bucket l -> list.for_all ((=)Van) l
+  | _ -> false
+```
+
+### dictionaries
+```ocaml
+let d_temp = [("nyc",32); ("bar harbour",10); ("anchorage",-1)]
+
+(* the type of this version doesn't tell us that the operation can fail...*)
+let rec_lookup_confusing d k = (* for dictionary d and key k*)
+  match d with 
+  | [] -> raise Not_found
+  | (key, v)::t -> a
+    if key=k
+    then v
+    else lookup t k
+
+(* we'll use this to signal that the operation can fail *)
+
+let 'a option = None | Some of 'a
+(* this is built in *)
+
+(* it's now type ('a * 'b) list -> 'a -> 'b option *)
+(* the option part tells the user that the operation can fail *)
+let rec_lookup d k = (* for dictionary d and key k*)
+  match d with 
+  | [] -> None
+  | (key, v)::t -> a
+    if key=k
+    then Some v
+    else lookup t k
+```
+
+## trees
+given binary trees defined as
+```ocaml
+type 'a bt = Empty | Node of 'a * 'a bt * 'a bt
+```
+we want to make
+```
+     33
+    /  \
+  22    77
+       /
+      44
+```
+so we'll do:
+```ocaml
+Node(33, 
+    Node(22, Empty, Empty),
+    Node(77,
+      Node(44, Empty, Empty)
+      Empty
+    )
+)
+```

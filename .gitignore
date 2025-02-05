@@ -2,3 +2,5 @@
 /_build
 /books
 *.lnk
+/.vscode
+*.pdf
