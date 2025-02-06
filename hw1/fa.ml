@@ -1,3 +1,9 @@
+(*
+Daniel Detore
+I pledge my honor that I have abided by the Stevens Honor System.
+2/9/2025
+*)
+
 
 (* ******************************************** *)
 (** Basic functions on finite automata *)
