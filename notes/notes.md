@@ -392,4 +392,124 @@ Node(33,
     )
 )
 ```
+and we can make some functions:
+```ocaml
+let rec sizet t =
+  match t with
+  | Empty -> 0
+  | Node(d,lt,rt) -> 1 + size lt + size rt
 
+let rec mirror t =
+  match t with
+  | Empty -> Empty
+  | Node(d,lt,rt) -> Node(d,mirror rt, mirror lt)
+
+let rec mapt t f =
+  match t with
+  | Empty -> Empty
+  | Node(d,lt,rt) -> Node(f d,mapt lt f,mapt rt f)
+
+let rec foldt f a t =
+  match t with
+  | Empty -> a
+  | Node(d,lt,rt) -> f d (foldt a lt) (foldt a rt)
+
+(* pre, in, and postorder traversal*)
+
+let rec pre t =
+  match t with
+  | Empty -> Empty
+  | Node(d,lt,rt) -> [d] @ pre lt @ pre rt
+
+let rec ino t =
+  match t with
+  | Empty -> Empty
+  | Node(d,lt,rt) -> ino lt @ [d] @ ino rt
+
+let rec pos t =
+  match t with
+  | Empty -> Empty
+  | Node(d,lt,rt) -> pos lt @ pos rt @ [d]
+```
+in general trees, nodes can havea ny amount of children, but they can't be empty. we write its definition as such
+```ocaml
+type 'a gt = Node of ('a gt) list
+```
+we would encode this tree:
+```
+      33
+   /   |  \
+22    55    77
+ |         /  \
+88       111  222
+```
+as:
+```ocaml
+let t1 : int ft =
+    Node(33,
+        [Node(22, [Node(88, [])])  ;
+        Node(55,[]);
+        Node(77,
+            [
+                Node(111,[]);
+                Node(222,[])
+            ])
+        ])
+```
+we'll get the size without matching since the tree can't be empty:
+```ocaml
+let sizegt (Node(d, ch)) =
+  1 + suml (sizegt )
+```
+
+# Inductive Definitions
+## Judgments
+- judgement: n nat; n is a natural number
+  - subject: n
+- axiom: a derivation rule with no hypothesis
+  - is a type of rule
+- proper derivation rule: has one or multiple hypotheses
+- one derivation always has one conclusion
+- hypothesis is on top; given the rule, the conclusion on the bottom is true.
+- proving that `succ(succ(zero))` = `(0++)++` is natural:
+  - ![alt text](image.png)
+- `expr` tells us if what we're given is well-formed (parentheses are balanced, operators have necessary operands, etc)
+## inductive set
+- inductive definition: e.g. n nat
+- inductive set: the set of all definitions you can make through that inductive definition
+
+
+# ARITH
+- every language and most extensions have syntax (concrete and abstract) and semantics (specification and implementation).
+  - syntax: how you write the language
+    - concrete: writing the code in exactly the right way
+  - semantics: 
+- grammar: historical way of defining an inductive set
+  - ![a grammar](image-1.png)
+  - don't look like derivation rules, but consider:
+    ```
+    x exp   y exp
+    ------------- ExpSub
+    x - y exp
+    ```
+    - if x, y are expressions, then x - y is an expression.
+  - terminals: numbers, -, /, (, )
+- if you want to derive the validity of an expression, you have to unfold it slowly using the grammar.
+  - we check if 3-4 is a valid expression:
+    - ![parsing](image-2.png)
+  - this is parsing. the result of parsing is a tree:
+    ```
+         Add
+       /     \
+    Int 3    Int 4
+    ```
+- Arith's abstract syntax looks like
+```ocaml
+type
+  prog = AProg of (cdecl list)*expr
+and
+ expr =
+  | Int of int
+  | Sub of expr*expr
+  | Div of expr*expr
+```

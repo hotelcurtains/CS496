@@ -170,5 +170,5 @@ let remove_dead_states fa =
   in
   {states = List.filter (fun x -> List.mem x good) fa.states;
    start = fa.start;
-   tf = List.filter (fun (qi,_,qf) -> List.mem qi good || List.mem qf good) fa.tf;
+   tf = List.filter (fun (qi,_,qf) -> List.mem qi good && List.mem qf good) fa.tf;
    final = List.filter (fun x -> List.mem x good) fa.final}
