@@ -513,3 +513,41 @@ and
   | Sub of expr*expr
   | Div of expr*expr
 ```
+- evaluation judgement: e⤋r 
+  - e is a parse tree and r is a result (an integer or error)
+- ARITH's rules; specifications
+  - EInt: int(n) ⤋ n
+  - ESub: given two expressions e1 and e2 and that p = m - n, return p
+  - EDiv: given two expressions e1 and e2, that e2≠0, and that p = m/n, return p
+  - ESubErr1, EDivErr1: e1 is invalid
+  - ESubErr2, EDivErr2: e2 is isvalid
+  - DivErr3: e2 = 0
+
+# LET
+![Figure 3.1, LET spec](image-3.png)
+- very much like arith except now we can declare variables and we have if/then
+- we start with an empty environment, but it's pretty normal to start with a nonempty one
+- use `show_type jjj` to show a type definition
+- the bind operation never changes
+```ocaml
+let (>>=) : 'a ea_result -> ('a -> 'b ea_result) -> 'b ea_result = fun c f ->
+  fun env ->
+  match c env with
+  | Error err -> Error err
+  | Ok v -> f v env
+```
+- we've decided instead of having `en` as a parameter, we'll have it in each return statement
+- recall reutrn just gives an Ok version of the input
+  ```ocaml
+  let return : 'a -> 'a result =
+    fun v ->
+    Ok v
+  ```
+- we can remove any reference to the environment from Int(n) because it doesn't use the env
+  ```ocaml
+  let return : 'a -> 'a ea_result =
+  fun v ->
+  fun _env ->
+  Ok v
+  ```
+- 
