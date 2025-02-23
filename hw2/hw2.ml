@@ -1,7 +1,7 @@
 (**
 @author Daniel Detore
-I pledge my honor that I have abided by the Stevens Honor System.
 @date 2/23/2025
+I pledge my honor that I have abided by the Stevens Honor System.
 *)
 
 (* Our encoding of binary decision trees. *)
@@ -77,19 +77,27 @@ let rec list_to_tree l =
   | h::t -> Node(h, list_to_tree t, list_to_tree t)
 
 (**
-[replace_leaf_at t f] returns a dTree resulting from [t] after replacing each
+[replace_leaf_at t f] is a dTree resulting from [t] after replacing each
 leaf addressed in the first element of a pair in [f] with the pair's second 
 element.
+dTree -> (int list * int) list -> dTree
 *)
 let rec replace_leaf_at t f =
-  (* dTree -> (int list * int) -> dTree *)
+  (* dTree -> int list * int -> dTree *)
   let rec replace_one t f =
     match t, f with
     | Leaf(_), ([], n) -> Leaf(n)
-    | Node(d,lt,rt), (h::t1, n) when h = 0 -> Node(d, replace_one lt (t1, n), rt)
-    | Node(d,lt,rt), (h::t1, n) when h = 1 -> Node(d, lt, replace_one rt (t1, n))
+    | Node(d,lt,rt), (0::t1, n)-> Node(d, replace_one lt (t1, n), rt)
+    | Node(d,lt,rt), (1::t1, n)-> Node(d, lt, replace_one rt (t1, n))
     | _, _ -> failwith "bad input"
   in
   match f with
   | [] -> t
-  | h::tail -> replace_one t h
+  | h::tail -> replace_leaf_at (replace_one t h) tail
+
+(**
+[bf_to_dTree e] is a tree built from the pair-encoded boolean function e.
+char list * (int list * int) list -> dTree
+*)
+let rec bf_to_dTree e =
+  replace_leaf_at (list_to_tree (fst e)) (snd e)
