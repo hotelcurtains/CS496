@@ -537,7 +537,7 @@ let (>>=) : 'a ea_result -> ('a -> 'b ea_result) -> 'b ea_result = fun c f ->
   | Ok v -> f v env
 ```
 - we've decided instead of having `en` as a parameter, we'll have it in each return statement
-- recall reutrn just gives an Ok version of the input
+- recall return just gives an Ok version of the input
   ```ocaml
   let return : 'a -> 'a result =
     fun v ->
@@ -546,8 +546,82 @@ let (>>=) : 'a ea_result -> ('a -> 'b ea_result) -> 'b ea_result = fun c f ->
 - we can remove any reference to the environment from Int(n) because it doesn't use the env
   ```ocaml
   let return : 'a -> 'a ea_result =
-  fun v ->
-  fun _env ->
+  fun v  _env ->
   Ok v
   ```
-- 
+
+
+take for example list append:
+```ocaml
+let rec append l1 l2 =
+match l1 with
+| [] -> l2
+| h::t -> h::(append t l2)
+```
+is equivalent to
+```ocaml
+let rec append : 'a list -> 'a list -> 'a list =
+fun l1 ->
+fun l2 ->
+match l1 with
+| [] -> l2
+| h::t -> h::(append t l2)
+```
+is equivalent to
+```ocaml
+let rec append : 'a list -> 'a list -> 'a list =
+fun l1 ->
+match l1 with
+| [] -> fun l2 ->
+| h::t -> fun l2 -> h::(append t l2)
+```
+- bind checks if the value is an error and keeps it that way; if it's Ok, it will return the function output
+- we can make the type `type 'a ea_result = env -> 'a result` so we work more polymorphically
+```ocaml
+| Let(id,e1,e2) ->
+eval_expr e1 en >>= fun w ->
+eval_expr e2 extend_env id w en
+```
+  - this won't work; we need to extend the environment e1 into e2
+  ```ocaml
+  let extend_env id ev en =
+    Ok (ExtendEnv(id, w, en))
+  ```
+  - we'll want something that produces a new environment given that `ExtendEnv`
+  ```ocaml
+  let (>>+) : env ea_result -> 'a ea_result -> 'a ea_result =
+  fun c d ->
+  fun env ->
+  match c env with
+  | Error err -> Error err
+  | Ok newenv -> d newenv
+  ```
+  - so now our let looks like
+  ```ocaml
+    | Let(id,def,body) ->
+      eval_expr def >>= 
+      extend_env id >>+
+      eval_expr body 
+  ```
+- write an expression with each of these types:
+  1. expr
+    - `Int(3)`
+  2. env
+    - `EmptyEnv`
+  3. exp_val
+    - `NumVal 7`
+  4. exp_val result
+    - `Ok(NumVal 12)`
+  5. int result
+    - `Ok(18)`
+    - `return 1 EmptyEnv`
+  6. env result
+    - `Ok EmptyEnv`
+  7. int ea_result
+    - `return 1`
+  8. exp_val ea_result
+    - `return (NumVal 12)`
+  9. env ea_result
+    - `return (EmptyEnv)`
+- evaluation judgements take a parse tree and return a number
+  - `Int(7) ⤋ 7`
