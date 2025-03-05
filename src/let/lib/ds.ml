@@ -113,7 +113,8 @@ let pair_of_pairVal : exp_val -> (exp_val*exp_val) ea_result =  function
   | _ -> error "Expected a pair!"
            
 let rec string_of_expval = function
-  | ListVal l -> "NOT IMPLEMENTED!"
+  | ListVal evs -> 
+    "ListVal("^String.concat "," (List.map string_of_expval evs)^")"
   | NumVal n -> "NumVal " ^ string_of_int n
   | BoolVal b -> "BoolVal " ^ string_of_bool b
   | PairVal (ev1,ev2) -> "PairVal("^string_of_expval ev1
