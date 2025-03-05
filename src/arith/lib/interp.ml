@@ -12,6 +12,8 @@ let rec maxl l =
   match l with
   | [] -> min_int
   | h::t -> max h (maxl t)
+
+let (let*) = (>>=)
     
 (** [eval_expr e] evaluates expression [e] *)
 let rec eval_expr : expr -> int result =
@@ -19,9 +21,9 @@ let rec eval_expr : expr -> int result =
   match e with
   | Int n      -> return n
   | Add(e1,e2) ->
-    eval_expr e1 >>= fun n ->
-    eval_expr e2 >>= fun m ->
-    return (n+m)   
+    let* n = eval_expr e1
+    in let* m = eval_expr e2
+    in return (n+m)   
   | Sub(e1,e2) ->
     eval_expr e1 >>= fun n ->
     eval_expr e2 >>= fun m ->

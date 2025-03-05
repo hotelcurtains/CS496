@@ -6,6 +6,7 @@
 type exp_val =
   | NumVal of int
   | BoolVal of bool
+  | ListVal of exp_val list
   | PairVal of exp_val*exp_val
   | TupleVal of exp_val list
 type env =
@@ -91,6 +92,10 @@ let rec apply_env : string -> exp_val ea_result = fun id env ->
 
 (* operations on expressed values *)
 
+let list_of_listVal : exp_val -> (exp_val list) ea_result =  function
+  | ListVal n -> return n
+  | _ -> error "Expected a list!"
+
 let int_of_numVal : exp_val -> int ea_result =  function
   |  NumVal n -> return n
   | _ -> error "Expected a number!"
@@ -108,6 +113,7 @@ let pair_of_pairVal : exp_val -> (exp_val*exp_val) ea_result =  function
   | _ -> error "Expected a pair!"
            
 let rec string_of_expval = function
+  | ListVal l -> "NOT IMPLEMENTED!"
   | NumVal n -> "NumVal " ^ string_of_int n
   | BoolVal b -> "BoolVal " ^ string_of_bool b
   | PairVal (ev1,ev2) -> "PairVal("^string_of_expval ev1

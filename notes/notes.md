@@ -625,3 +625,119 @@ eval_expr e2 extend_env id w en
     - `return (EmptyEnv)`
 - evaluation judgements take a parse tree and return a number
   - `Int(7) ⤋ 7`
+- we can rewrite our parser using an extended let syntax if we wwant:
+```ocaml
+let (let*) = (>>=)
+(* ... *)
+| Add(e1,e2) ->
+    let* n = eval_expr e1
+    in let* m = eval_expr e2
+    in return (n+m)   
+```
+
+# PROC
+examples:
+```ocaml
+let f = proc (x) { x-11 }
+in (f (f 77))
+ (* returns 55 *)
+
+(proc (f) { (f (f 77)) } proc (x) { x-11 })
+(* 
+Same in ocaml: (fun f -> f (f 77)) (fun f -> x-11) 
+Returns 55
+*)
+
+let x = 2
+in let f = proc (z) { z-x }
+in (f 1)
+(* Returns -1 *)
+
+let x = 2
+in let f = proc (z) { z-x }
+in let x = 1
+in let g = proc (z) { z-x }
+in (f 1) - (g 1)
+```
+- our judgments look like $e, \rho \downarrow r$
+
+We've added these productions to our grammar:
+- ⟨Expression⟩ ::= proc(⟨Identifier⟩){⟨Expression⟩}
+  - if this were $f(x) = y$, proc is f, ⟨Identifier⟩ is $x$, ⟨Expression⟩ is $y$
+- ⟨Expression⟩ ::= (⟨Expression⟩⟨Expression⟩)
+by adding these types to ds.ml:
+- `PairVal of exp_val*exp_val`
+- `ProcVal of string*expr*env`
+
+We must extend Result to hold function parameters and bodies
+- BUT we also need to hold the environment of each function declaration AND its environment
+  - look at the last example; x changes value from the environemnt in which we declared f to the one in which we declared g
+
+Given:
+```ocaml
+interp "
+let x = 2
+in let f = proc (z) { z-x }
+in let x = 1
+in let g = proc (z) { z-x }
+in (f 1) - (g 1)
+"
+```
+and our new rules: ![alt text](image-4.png)
+- σ is our dynamic scope, which is the environment in which e was defined
+- ρ is our current scope
+- ⊕ = extend σ with w
+  - i.e. add w to saved environment σ so we have someplace to assign its value when its given to us at the actual function call
+- each procedure has a closure: formal parameter e and environment from the time of its definition ρ
+
+the definitions of exp_val and env are mutually recursive, so we have to declare them together:
+```ocaml
+type exp_val =
+  | NumVal of int
+  | BoolVal of bool
+  | PairVal of exp_val*exp_val
+  | ProcVal of string*expr*env
+and
+  env =
+  | EmptyEnv
+  | ExtendEnv of string*exp_val*env
+```
+
+if we did 
+```ocaml
+# interp "
+let f = (x) {x-1}
+in a = 2
+in f";;
+```
+- the environment of f will not contain a because it was not defined when we defined f
+when we have
+```ocaml
+| Proc(id,_,e)  ->
+  lookup_env >>= fun en ->
+  return (ProcVal(id,e,en))
+```
+- second line grabs ρ, the then-current environment, and the third creates the actual triple.
+- remember this looks like $\frac{}{Proc(id,e),\rho\downarrow(id,e,\rho)}EProc$
+  - more specifically, it returns an Ok of (id,e,ρ)
+- bind requires a third argument, the environment; where is it?
+  - right now it just has `lookup_env` → c, and `fun en`... → f
+- when you lookup the empty environemnt you get an Ok of the empty environment
+
+we have a function that extracts the closure from a proc:
+```ocaml
+let clos_of_procVal : exp_val -> (string*expr*env) ea_result =
+  fun ev ->
+  match ev with
+  | ProcVal(id,body,en) -> return (id,body,en)
+  | _ -> error "Expected a closure!"
+```
+
+recall our >>+ operator that replaces the left environment with the right one
+```ocaml
+let (>>+) (c:env ea_result) (d:'a ea_result): 'a ea_result =
+  fun env ->
+  match c env with
+  | Error err -> Error err
+  | Ok newenv -> d newenv
+```

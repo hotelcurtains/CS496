@@ -1,3 +1,9 @@
+(**
+@author Daniel Detore, Anthony Santilli
+@date 3/9/2025
+I pledge my honor that I have abided by the Stevens Honor System.
+*)
+
 open Parser_plaf.Ast
 open Parser_plaf.Parser
 open Ds
@@ -6,6 +12,27 @@ open Ds
 let rec eval_expr : expr -> exp_val ea_result =
   fun e ->
   match e with
+  | EmptyList(_) -> 
+    return (ListVal ([]))
+  | Cons(e1,e2) ->
+    eval_expr e1 >>= fun n1 -> 
+    eval_expr e2 >>= 
+    list_of_listVal >>= fun n2 ->
+    return (ListVal (n1::n2))
+  | Hd(e) ->
+    eval_expr e >>=
+    list_of_listVal >>= fun n ->
+    if n = [] then error "hd: List is empty!"
+    else return (List.hd n)
+  | Tl(e) ->
+    eval_expr e >>=
+    list_of_listVal >>= fun n ->
+    if n = [] then error "tl: List is empty!"
+    else return (ListVal (List.tl n))
+  | IsEmpty(e) ->
+    eval_expr e >>=
+    list_of_listVal >>= fun n ->
+    return (BoolVal (n = []))
   | Int(n) ->
     return (NumVal n)
   | Var(id) ->
