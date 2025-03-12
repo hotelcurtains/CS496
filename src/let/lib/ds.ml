@@ -9,6 +9,7 @@ type exp_val =
   | ListVal of exp_val list
   | PairVal of exp_val*exp_val
   | TupleVal of exp_val list
+  | UntupleVal of string list * exp_val*exp_val
 type env =
   | EmptyEnv
   | ExtendEnv of string*exp_val*env
@@ -120,6 +121,8 @@ let rec string_of_expval = function
   | PairVal (ev1,ev2) -> "PairVal("^string_of_expval ev1
                          ^","^ string_of_expval ev2^")"
   | TupleVal evs -> "TupleVal("^String.concat "," (List.map string_of_expval evs)^")"
+  | UntupleVal (x, y, z) -> 
+    "TupleVal("^(String.concat "," x)^(string_of_expval y)^","^(string_of_expval z)^")"
 
 let rec string_of_env' ac = function
   | EmptyEnv ->  "["^String.concat ",\n" ac^"]"
@@ -130,3 +133,5 @@ let string_of_env : string ea_result =
   match env with
   | EmptyEnv -> Ok ">>Environment:\nEmpty"
   | _ -> Ok (">>Environment:\n"^ string_of_env' [] env)
+
+  

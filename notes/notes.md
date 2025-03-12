@@ -688,7 +688,7 @@ and our new rules: ![alt text](image-4.png)
 - ρ is our current scope
 - ⊕ = extend σ with w
   - i.e. add w to saved environment σ so we have someplace to assign its value when its given to us at the actual function call
-- each procedure has a closure: formal parameter e and environment from the time of its definition ρ
+- each procedure has a closure: identifier (proc's variable name), formal parameter e, and environment from the time of its definition ρ
 
 the definitions of exp_val and env are mutually recursive, so we have to declare them together:
 ```ocaml
@@ -741,3 +741,159 @@ let (>>+) (c:env ea_result) (d:'a ea_result): 'a ea_result =
   | Error err -> Error err
   | Ok newenv -> d newenv
 ```
+
+
+- running a proc returns a closure
+```ocaml
+interp "let f=(let b=2 in proc (x) { x }) in f";;
+```
+- `Ok (ProcVal("x", Var "x", [b:=NumVal 2]))`
+```ocaml
+interp "proc (x) { proc (y) { x-y } }";;
+```
+- `Ok (ProcVal("x",Proc("y", Sub(Var "x", Var "y")), [] ))`
+  - a proc inside a proc is always a Proc, not a ProcVal. the ProcVal is the output of a Proc; since they're nested here we need the actual procedure, not the value.
+```ocaml
+let a=1
+in let b=2
+in let c = proc (x) { debug(proc (y) { x-y } )}
+in (c b)
+```
+- Environment: a := NumVal 1, b := NumVal 2, x := NumVal 2
+  - note c is not in scope during its own definition or its executed.
+  - we're calling `(c b)`, which is why x = b
+  - note the debug doesn't get called until we call `c b`; by then we have actually defined b. it is read but not executed.
+  - y is not in scope bc we haven't defined it by the time debug is called
+
+## proc quiz
+```ocaml
+utop # interp "
+let f = proc(x) {proc (y) {x+y}}
+in let a = 2
+in (f a)
+";;
+- : exp_val Proc.Ds.result =
+Ok (ProcVal ("y", Add (Var "x", Var "y"), ExtendEnv ("x", NumVal 2, EmptyEnv)))
+```
+
+
+# REC
+- this is only one new production added onto PROC.
+- this is only one new production added onto PROC.
+- this is only one new production added onto PROC.
+- this is only one new production added onto PROC.
+- this production is:
+```
+⟨Expression⟩ ::= letrec {⟨Identifier⟩(⟨Identifier⟩) = ⟨Expression⟩}+ in ⟨Expression⟩
+```
+  - with this, we can declare recursive functions without dying.
+- we can write the factorial function with this ability:
+```ocaml
+utop # parse "
+    letrec f(x) =
+    if zero?(x)
+    then 1
+    else x*(f(x-1))
+in (f 5)
+";;
+
+- : prog =
+AProg ([],
+ Letrec
+  ([("f", "x", None, None,
+     ITE (IsZero (Var "x"), Int 1,
+      Mul (Var "x", App (Var "f", Sub (Var "x", Int 1)))))],
+  App (Var "f", Int 5)))
+```
+we can also force x in f to be an integer, and force f to return an integer:
+```ocaml
+parse "
+letrec f(x:int):int = 
+    if zero?(x)
+    then 1 else x*(f (x-1))
+in (f 5) 
+";;
+- : prog =
+AProg ([],
+ Letrec
+  ([("f", "x", Some IntType, Some IntType,
+     ITE (IsZero (Var "x"), Int 1,
+      Mul (Var "x", App (Var "f", Sub (Var "x", Int 1)))))],
+  App (Var "f", Int 5)))
+```
+- results and evaluations are the same as PROC
+  - $e, \rho \downarrow r$
+- we now have $\frac{e2, \rho \oplus \{id:= (par, e1, \rho)^r\}\downarrow v}{Letrec([(id, par, ...,...,,e1)], e2),\rho \downarrow v}$
+  - ![Figure 3.14 additional evaluation rules for REC](image-5.png)
+  - par is the parameter
+  - id is the name
+  - e1 is the body of the function
+    - in our abstract syntax; it's `Add(Int 1, Int 1)` and not `1+1`
+    - note `Int` not `NumVal` because we havent evaluated the int yet
+  - ρ is the environment
+  - the superscript r denotes that this is a special triple that represents a RECURSIVE function, not a regular one
+  - when we run this special function, we want to get back one regular closure
+  - the environment needs to be extended to include the recursive version of the function, just in case
+- our ExtendRecEnvironment must include the function itself. that's what a recursive function is
+  - the base case will not do so, since it doesn't need to
+
+
+# midterm
+## structure
+- 6 exercises
+  - derivations
+  - evaluation of expressions (LET, PROC, REC)
+  - evaluation of expressions with debug
+    - knowing what the environment looks like, i.e. what's in scope
+  - Extension to LET
+    - given concrete and abstract syntax and evaluation rules, add some extension
+
+## review
+- when we interpret
+  ```ocaml
+  let a = 2
+  in let f=proc (x) { proc(y) {x-y}}
+  in f
+  ```
+  - it returns:
+    ```
+    Ok
+    (ProcVal ("x", Proc ("y", None, Sub (Var "x", Var "y")),
+      ExtendEnv ("a", NumVal 2, EmptyEnv)))
+    ```
+    and we can write that environment instead as
+    ```
+    Ok (ProcVal ("x", Proc ("y", None, Sub (Var "x", Var "y")), [a := 2]))
+    ```
+    because otherwise it's annoying and hard to read.
+  - NOTE THAT the inside is `Proc` not `ProcVal`, because we haven't actually evaluated it yet. it's our static type, not our special abstract types
+- we can see:
+  ```
+  utop # interp "let a = 1+1 in debug(a+2)";;
+  >>Environment:
+  [a:=NumVal 2]
+  ```
+  - when we save the value of `a`, we parse it as much as possible first
+    - therefore it's `Numval 2`, not `Add(NumVal 1, NumVal 1)` or `Add(Int 1, Int 1)`
+  - because we aren't allowed to put it in the environemnt until we have fully parsed it, according to the rule ELet: ![ELet from figure 3.1](image-6.png)
+- we can find:
+  ```
+  utop # interp "let a=2
+    in let f=proc (x) { x+a }
+    in let g=proc (y) { x }
+    in debug(3)";;
+
+  >>Environment:
+  [a:=NumVal 2,
+  f:=ProcVal (x,Add(Var x,Var a),[a:=NumVal 2]),
+  g:=ProcVal (y,Var x,[a:=NumVal 2,
+    f:=ProcVal (x,Add(Var x,Var a),[a:=NumVal 2])])]
+  ```
+  - f is there twice because g contains f in its environment
+    - it IS a `ProcVal` in g's environment because it has been evaluated by the time g is declared
+    - g's environment contains a, as well as f's, so the second time we see f it also needs to contain a
+- evaluation question: does Div(Var "x", Int 2), [x := 4] ⤋ 4?
+  - in the let language:
+$$\frac{\frac{[x=4](x) = 4}{Var "x", [x:=4] \downarrow 4}EVar\ \ \frac{}{Int\ 2, [x:= 4] \downarrow 2}EInt}{Div(Var "x",\ Int\ 2), [x:=4] \downarrow 2}$$
+  - an axiom is a rule that has no *evaluation judgments* above the horizontal line
+    - this includes ones with blank tops but other ones ahve stuff on top that aren't evaluation judgments

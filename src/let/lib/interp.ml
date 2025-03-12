@@ -12,12 +12,22 @@ open Ds
 let rec eval_expr : expr -> exp_val ea_result =
   fun e ->
   match e with
+  | Tuple(es) ->
+    eval_exprs es >>= fun n ->
+    return (TupleVal n)
+  | Untuple (ids,e1,e2) -> 
+    eval_expr e1 >>= 
+    list_of_tupleVal >>= fun l ->
+    if List.length ids = List.length l
+      then extend_env_list ids l >>+
+    eval_expr e2
+  else error "extend_env_list: Arguments do not match parameters!"
   | EmptyList(_) -> 
     return (ListVal ([]))
-  | Cons(e1,e2) ->
-    eval_expr e1 >>= fun n1 -> 
-    eval_expr e2 >>= 
-    list_of_listVal >>= fun n2 ->
+    | Cons(e1,e2) ->
+      eval_expr e1 >>= fun n1 -> 
+      eval_expr e2 >>= 
+      list_of_listVal >>= fun n2 ->
     return (ListVal (n1::n2))
   | Hd(e) ->
     eval_expr e >>=
@@ -82,6 +92,15 @@ let rec eval_expr : expr -> exp_val ea_result =
     print_endline str; 
     error "Debug called"
   | _ -> failwith "Not implemented yet!"
+  and
+  eval_exprs : expr list -> (exp_val list) ea_result =
+  fun es ->
+  match es with
+  | [] -> return []
+  | h :: t -> eval_expr h >>= fun i ->
+  eval_exprs t >>= fun l ->
+  return (i :: l)
+
 
 (** [eval_prog e] evaluates program [e] *)
 let eval_prog (AProg(_,e)) =
