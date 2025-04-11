@@ -6,3 +6,8 @@
 *.pdf
 /src
 /hw3
+/hw4/*
+!/hw4/lib
+/hw4/lib/*
+!/hw4/lib/ds.ml
+!/hw4/lib/interp.ml

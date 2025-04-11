@@ -897,3 +897,420 @@ AProg ([],
 $$\frac{\frac{[x=4](x) = 4}{Var "x", [x:=4] \downarrow 4}EVar\ \ \frac{}{Int\ 2, [x:= 4] \downarrow 2}EInt}{Div(Var "x",\ Int\ 2), [x:=4] \downarrow 2}$$
   - an axiom is a rule that has no *evaluation judgments* above the horizontal line
     - this includes ones with blank tops but other ones ahve stuff on top that aren't evaluation judgments
+
+## TA Review
+- derivation with concrete syntax looks like the proofs from 135 but with his layout instead
+- in ARITH expressions can only be integers
+- given (5-6) - 2 - (3/3)
+  - `Sub(Sub(Sub(Int 5, Int 6), Int 2), Div(Int 3, Int 3))`
+- `return v` is `Ok(v)`
+- `parse "2-2"` = `Sub(Int 2, Int 2)`
+- `parse "2 - 2/3"` = `Sub(Int 2, Div(Int 2, Int 3))`
+- `parse "(5 - 6) - 2 -(3/3)"` = `Sub(Sub(Sub(Int 5, Int 6), Int 2), Div(Int 3, Int 3))`
+- new in LET are ITE, IsZero, Var, and Let
+- because there are conditionals, there are also booleans
+- environment: $\rho = \{x:= true\}$
+  - basically everything has an environment in LET
+- new ways to get errors through zero? and ITE
+- returns now need to actually return funny types like `NumVal` instead of just `Int` 
+- recall our extend environemnt operator `>>+` that extends the left environment with the right one
+- `parse "let x=22 in x` = `Let("x", Int 22, Var "x")`
+  - `Let(<variable name string>, <variable value>, expression)`
+- `parse "let x = 10 in let y = 10 in x+y"` = 
+  `Let("x", Int 10, Let("y", Int 10, Add(Var "x", Var "y")))`
+- `parse "let x=1 in let x=2 in let x=0 in zero?(x)"` =
+  `Let("x", Int 1, Let("x", Int 2, Let("x", Int 0, IsZero(Var "x"))))`
+- what happens when we `interp "let x=1 in let x=2 in let x=0 in debug(zero?(x))"`
+  ```
+  Environment:
+  [x := NumVal 1,
+  x := NumVal 2,
+  x := NumVal 0]
+  ```
+  - It's NumVal now because we're interpreting, not parsing. we are getting Expressed Values (`expr_val`), not expressions (`expr`)
+  - let doesn't care if the variable already exists. the interpreter only grabs the most recently assigned value
+### Proc
+- ProcVal is a closure, i.e. a triple that contains id (parameter name), e (body), and σ (environment in which the proc was evaluated)
+  - Proc has the same stuff
+  - in both, literal ints inside the body stay as ints until we interpret them
+- The expression in a proc *stays* as an expression, unlike in LET where we evaluate it right away
+- App is an actual application of the procedure
+  - `(f b)` => `App (Var "proc_name", Given parameter)`
+- ExtendEnv takes `ExtendEnv("var_name", ExpressionType value, OldEnv)` and adds `[var_name := ExpressionType value]` to environment OldEnv and returns the result
+- `interp "let x = 2+2 in proc(y) {y+x}"` = `Ok( ProcVal("y", Add(Var "y", Var "x"), [x := NumVal 4]) )`
+```
+interp "let a = zero?(0)
+in let b = 5
+in let f = proc(x) {x+3}
+in proc(y) { (f (f b)) }";;
+
+in shorthand:
+Ok( 
+  ProcVal ("y", App(Var "f", App(Var "f", Var "b")),
+    [f = ProcVal("x", Add(Var "x", Int 3), [b := NumVal 5, a := BoolVal true])
+    b := NumVal 5, 
+    a := BoolVal true]
+  )
+)
+
+or exactly:
+Ok
+ (ProcVal ("y", App (Var "f", App (Var "f", Var "b")),
+   ExtendEnv ("f",
+    ProcVal ("x", Add (Var "x", Int 3),
+     ExtendEnv ("b", NumVal 5, ExtendEnv ("a", BoolVal true, EmptyEnv))),
+    ExtendEnv ("b", NumVal 5, ExtendEnv ("a", BoolVal true, EmptyEnv)))))
+```
+
+
+# 3/24
+- IMPLICIT-REFS: variable types are mutable
+- EXPLICIT-REFS: variable types are immutable
+- ocaml does support mutable states but we haven't used them yet
+- we can do all this:
+  ```ocaml
+  utop # type person = {name:string; age:int};;
+  type person = { name : string; age : int; }
+
+  utop # let p1 = {name="Sue"; age=50};;
+  val p1 : person = {name = "Sue"; age = 50}
+  
+  utop # let bday p = {p with age=p.age+1};;
+  val bday : person -> person = <fun>
+
+  utop # bday p1;;
+  - : person = {name = "Sue"; age = 51}
+  ```
+- OCaml's equivalent to java's void is unit.
+  - the only value of type unit:
+  ```ocaml
+  utop # ();;
+  - : unit = ()
+  ```
+- "in-place update" changes the value of the thing you put in, instead of returning a new one
+  - if we declare the age field as mutable, we can update it in-place
+  ```ocaml
+  utop # type person = {name:string; mutable age: int};;
+  type person = { name : string; mutable age : int; }
+
+  utop # let bday p = p.age <- p.age+1;;
+  val bday : person -> unit = <fun>
+
+  utop # let p1 = {name="Sue"; age=50};;
+  val p1 : person = {name = "Sue"; age = 50}
+
+  utop # bday p1;;
+  - : unit = ()
+
+  utop # p1;;
+  - : person = {name = "Sue"; age = 51}
+  ```
+- other means of implementing mutable states are arrays and references (pointers)
+  
+## references
+- pointers
+- `let s = ref 0`
+- `ref e` mallocs the (evaluated) value of e
+- `!e` dereferences e. `!`:Ocaml :: `*`:C
+- `e1 := e2` evaluates e1 to get a reference then updates the reference with the value of e2
+  - this expression becomes a unit
+  - `x := 2` ≡ `*x = 2` in C
+- `begin e1;e2;e3;...;en end` evaluates all of $e_1 : e_{n-1}$ then throws all of their values away. it evaluates and RETURNS `en`.
+  - we are to assume that $e_1 : e_{n-1}$ don't return anything meaningful
+- `ignore` turns anything into a unit: `begin ignore 1; 2 end` -> `2`
+- OCaml evaluates comparisons from right to left, C goes from left to right
+
+# 3/26
+- if you're taking an argument you won't use make it the unit
+  - `fun () -> s := !s+1`
+- when we declare a side-affecting function we might see 
+  ```ocaml
+  utop #
+  let c = let s = ref 0
+    in fun () ->
+      s:=!s+1;!s;;
+  val c : unit -> int = <fun>
+  ```
+  - `<fun>` is a closure: `Ok (ProcVal("()", begin s:=!s+1;!s end, [ s:=RefVal 34 ]))`
+  - if we run `c` it increments `s` and prints its value
+  - if we run `s` we get an error because it's out of scope
+- "freshness generator" is not a thing we're doing but it sounds funny
+- counter type
+```ocaml
+utop # type ctr = {up:unit->unit; dn:unit->unit; rd:unit->int};;
+type ctr = { up : unit -> unit; dn : unit -> unit; rd : unit -> int; }
+
+
+```
+- more to the counter type:
+```ocaml
+utop # type ctr = { set : unit -> unit; inc : unit -> unit; rd : unit -> int};;
+type ctr = { set : unit -> unit; inc : unit -> unit; rd : unit -> int; }
+```
+- we can try to define increment by using set like this:
+  ```ocaml
+  set = (fun i -> s:=!s+i)
+  inc = (fun () -> this.set 1)
+  ```
+  - but we don't have a `this` object... so we make it ourselves:
+  -   ```ocaml
+      utop # let c = let s = ref 0
+      in
+      let rec this = {
+      set = (fun i -> s:=!s+i);
+      inc = (fun () -> this.set 1);
+      rd = (fun () -> !s)
+      }
+      in this;;
+      ```
+  - now we can define `this` rigorously as a recursive record (since we need it to contain itself)
+- linked list:
+  ```ocaml
+  type 'a node = {data: 'a; next: 'a node option} 
+  type 'a ll = {head: 'a node option; size: int}
+  let ll1 : int ll = (* empty list *)
+  {
+    head=None;
+    size=0
+  }
+  let ll2 : int ll =
+  {
+    head=Some {data=3; next=None};
+    size=1
+  }
+  ```
+  - since head can be something or nothing we use the Option type
+    - we need the option type to actually end the list, otherwise we have no way to denote it as empty like null in java
+  - if we want a function that adds an element to the front:
+    ```ocaml
+    let add_first ll e =
+        ll.head <- Some { data=e; next=ll.head }
+        ll.size <- ll.size+1
+    ```
+    - but we find `Error: The record field size is not mutable`
+    - so we'll make `size` mutable.
+      - this keeps happening so we can just make everything mutable
+```ocaml
+type 'a node = { mutable data: 'a; mutable next: 'a node option}
+type 'a ll = { mutable head: n'a node option; mutable size: int}
+```
+
+# 3/31
+- new productions:
+  - $⟨Expression⟩ ::= newref(⟨Expression⟩)$
+  - $⟨Expression⟩ ::= deref(⟨Expression⟩)$
+  - $⟨Expression⟩ ::= setref(⟨Expression⟩, ⟨Expression⟩)$
+  - $⟨Expression⟩ ::= begin ⟨Expression⟩∗^{(;)} end$
+```ocaml
+utop # parse "let a = newref(2) in
+setref(a, deref(a)+1)";;
+- : prog =
+AProg ([],
+ Let ("a", NewRef (Int 2), SetRef (Var "a", Add (DeRef (Var "a"), Int 1))))
+```
+- REC only had expressed values as numbers, booleans, and closures
+- E-R needs a type to handle references
+- what should `setref()` return?
+  - same thing as OCaml, a unit
+  - we need to add the unit to the language as an expressed value: $\mathbb{U} := {unit}$
+  - $\mathbb{EV := Z \cup B \cup U \cup CL \cup L}$
+    - integers, booleans, unit, closures, and locations
+- note: he uses $\sigma \equiv$ "heap" $\equiv$ old term for the heap "store"
+- when you do malloc, you need a heap
+  - grab the next available spot and put the value there
+- doing Something(e1, e2) we need to use e1's output heap as the input heap of e2 in case both do mallocs and fight for the same space
+  - we reutrn $\sigma'$ everywhere that takes an expression just in case there's a malloc in there
+- $e, \rho, \sigma, \downarrow r, \sigma'$
+  - expresstion, environment, heap, returns some result and an updated heap (store)
+- you can only deref a location; location $\approx$ pointer
+  - $\sigma'(v)$ is dereferencing v; i.e. finding the location v in σ and returning what's there
+- new functionsin the parse tree are `NewRef(e)`, `DeRef(e)`, `SetRef(e1, e2)`, `BeginEnd([])`, and `beginEnd(es)`
+- we need something in the language to represent the heap in the language
+  - we'll use our awesome premade structure store.ml
+- recall `type 'a ea_result = env -> 'a result`
+  - the functional programming way to update this is to add `type 'a easresult = env -> -> store -> ('a result, store)`
+  - we'd then need to modify the bind operation and that's too confusing
+    - state monad is `store -> ('a result, store)`
+- instead we'll make the store a global variable, then we never need to pass it
+  - `let g_store = Store.empty_store 20 (NumVal 0)`
+    - creates an store full of 20 `NumVal 0`s
+  - not functional or clean and it is hacky but it's simpler to understand
+- we've added new `exp_val` `| RefVal of int` which is basically our pointer
+- OCaml : `!(ref 2)` :: E-R `interp "deref(newref(2))"`
+- we override the given unit output from Store and just output UnitVal instead
+
+# 4/7
+## explicit rrefs example:
+```
+let c = let s = newref(0)
+  in { set = proc (i) {setref(s, deref(s)+i)};
+       read = proc (i) {deref(s)} }
+in
+  begin
+    (c.set 3);
+    debug((c.read 0));
+  end
+```
+results in:
+```
+env: [
+s := RefVal 0
+c := RecordVal([
+  set = ProcVal("i" SetRef(Var s, Add(Deref(s), Var i)), 
+    [s := RefVal 0]); 
+  read := ProcVal("i", Deref(Var s),
+    [s := RefVal 0])
+])
+]
+
+store:
+0 := NumVal 3
+```
+## implicit refs
+- everything is mutable. we can now reassign variables with `set`
+  ```
+  let x = 2
+  in begin
+    set x =3;
+    x (*x is 3*)
+  end
+  ```
+  ```
+  parse "  let x =2
+    in begin
+      set x =3;
+      x
+    end";;
+  -> Let ("x", Int 2, BeginEnd [Set ("x", Int 3); Var "x"])
+  ```
+- results will always be $\mathbb{R} = \mathbb{EV} \cup \{error\}$
+  - we only change the contents of EV.
+  - $\mathbb{EV} = \mathbb{Z \cup B} \cup \{unit\}$
+    - integers, booleans, units; we don't add pointers
+  - why no pointers (i.e. locations)?
+    - you can't write code that returns a pointer; it's automatically dereferenced
+- evaluation judgments are still $e, \rho, \sigma \downarrow \sigma'$
+- most evaluation rules are the same as explicit refs
+
+# 4/9
+- variable lookups take two steps
+  - every "let" adds that variable to the heap, and makes the variable a pointer
+  - no more newref, setref or deref; these are implicit now
+```ocaml
+| Var(id) -> apply_env id >>=  (*ρ(id)*)
+  int_of_refVal ->  (*checking that id is a location, otherwise propagate an error*)
+  Store.deref g_store
+```
+```ocaml
+| Let(id,e1,e2) ->
+  eval_expr e1 >>= fun w ->
+  let l = Store.new_ref g_store w (*malloc w into the store*)
+  let extend_env id (RefVal l) >>+  (*extend environment with a pointer to w*)
+  eval_expr e2
+```
+this will produce an error:
+```
+# interp "
+proc (x) {x+1} in (f 5)";;
+```
+- x is a RefVal
+- we must change proc to handle the 
+```ocaml
+| App(e1,e2)  -> 
+  eval_expr e1 >>= 
+  clos_of_procVal >>= fun (id,e,en) -> (*eval e1 and make sure it's a closure*)
+  eval_expr e2 >>= fun w -> (*evl e2 and get some w*)
+  let l = Store.new_ref g_store w (*malloc w to l*)
+  in return en >>+
+  extend_env id w >>+
+  eval_expr e
+```
+```ocaml
+| Set(id, e) -> (*based on setref*)
+  eval_expr e >>= fun v ->
+  apply_env id >>=
+  int_of_refVal >>= l -> (*get location or cause error*)
+  Store.set_ref g_store l v >>= fun _ ->
+  return UnitVal
+```
+
+```ocaml
+# interp "
+let a = 2 in
+let f = proc (x) {debug(x+1)}
+in begin 
+  (f a);
+  a
+end
+";;
+
+>>Environment:
+[a:=RefVal (0),
+x:=RefVal (2)]
+>>Store:
+0->NumVal 2,
+1->ProcVal (x,Debug(Add(Var x,Int 1)),[a:=RefVal (0)]),
+2->NumVal 2
+```
+
+# 4/11
+- letrec in REC is a problem because we need to keep including its entire body in its environment
+  - instead we can make it include a pointer to itself
+  - ```
+    Environment:
+    f := RefVal 0
+    Heap:
+    0 <- ProcVal("x", ITE(_), [f := RefVal 0])
+    ```
+- we'll change it to this:
+```ocaml
+| Letrec([(id,par,_,_,e)],target) ->
+  (* open a new address in the heap *)
+  let l = Store.new_ref g_store (NumVal 0)
+  (* put the pointer into the environment; no more extend_env_rec *)
+  in extend_env id (RefVal l) >>+
+  (* self-explanatory *)
+  (lookup_env >>= fun en ->
+  (* store the function into the new address & ignore output; set_ref returns unit *)
+  Store.set_ref g_store l (ProcVal(par,e,en)) >>= fun _ ->
+  eval_expr target)
+```
+```
+utop # interp "letrec f (x) = if zero?(x) then 1 else x*(f (x-1))
+in debug(f)
+";;
+
+>>Environment:
+[f:=RefVal (0)]
+>>Store:
+0->ProcVal (x,ITE(Zero?(Var x),Int 1,Mul(Var x,App(Var f,Sub(Var x,Int 1)))),[f:=RefVal (0)])
+- : exp_val Implicit_refs.Ds.result = Error "Debug called"
+```
+
+## CHECKED
+- basically REC but with types now.
+- concrete syntax: ![concrete syntax](image-7.png)
+- if you mistype a type it will assume you're using a custom type, so watch out
+- prospective typing judgments:
+  - e:t => e has type t
+  - int 1 : int => true
+  - int 1 : bool => false
+  - x+1 : int => true?
+    - can we derive this?
+    - it depends on what we know about x
+      - if it's not defined, then obviously it's not typeable
+      - maybe it's declared but it's not an int
+    - we need to check the environment
+      - but specifically a typing environment
+- our form is $\Gamma \vdash e:t$ where Γ is a typing judgment. a typing judgment is a partial function from variables to types
+  - {x:int} |- x+1:int is a valid (i.e. derivable) typing judgment
+  - {x:bool} |- x+1:int is an invalid one
+- TInt and TVar are axioms
+  - ![TInt and TVar](image-8.png)
+- zero?(e) has type bool if e has type int
+- TLet is the first one to modify Γ, because obviously it must
+  - $\Gamma, id:t1$ is adding variable name id with type t1 to Γ
+    - comma is equivalent to ⊕ for environments
+- a proc always has an arrow type (t1 → t2 is a function from t1 to t2)
+- the id of the formal parameter is declared by the programmer in the function definition
+  - they could also infer it, like OCaml does, but we don't do that here
