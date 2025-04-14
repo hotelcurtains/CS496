@@ -1,0 +1,15 @@
+
+(* Find exercise  *)
+
+let n_left = { data <= 12; left <= 0; right <= 0}    (* 0 in head signals null *)
+in let n_right = { data <= 44; left <= 0; right <= 0}
+in let n_root = { data <= 33; left <= n_left ; right <= n_right }
+in let t1 = { root <= n_root ; length <= 3}
+in letrec helper(n) = proc (a) {
+  if number?(n) then zero?(1) (*false*)
+  else if (n.data = a) then zero?(0) (*true*)
+  else if (n.data << a) then ((helper n.right) a)
+  else ((helper n.left) a)
+}
+in let find_bt = proc (t) { proc (a) {((helper t.root) a)}}
+in ((find_bt t1) 12)

@@ -1314,3 +1314,5 @@ in debug(f)
 - a proc always has an arrow type (t1 → t2 is a function from t1 to t2)
 - the id of the formal parameter is declared by the programmer in the function definition
   - they could also infer it, like OCaml does, but we don't do that here
+- do exercise 5.1.2 for fun and profit
+
