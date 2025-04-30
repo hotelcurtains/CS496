@@ -1316,3 +1316,273 @@ in debug(f)
   - they could also infer it, like OCaml does, but we don't do that here
 - do exercise 5.1.2 for fun and profit
 
+# 4/14
+- take `let two? = proc(x:int) { if zero?(x-2) then 0 else 1} in (two? 3)`
+  - we can type this.
+  - given typing environment Γ and type t such that:
+  - Γ ⊢ let two? = proc(x:int) { if zero?(x-2) then 0 else 1} in (two? 3) : t
+  - we can take Gamma to be {} (the empty environment) and t to be int.
+- next we will show that we can judge this:
+![alt text](IMG_5763.jpg)
+- TLet and TProc are the only 2 that effect the environment
+- we can't type zero?(zero?(0)) because we have no rules that let us parse it
+  - i.e. you can't type invalid statements
+- can we type `x`?
+  - yes we can assume Γ = {x:bool} and t = bool, then ${x:bool} \vdash x:bool$
+- can we type `(x x)`?
+  - no, we have no rule that lets us apply a proc to a proc. we cannot find an environment where we can derive $\Gamma \vdash (x x):t$.
+  - self-application is not typeable because we do not have polymorphism in our language
+- if `s := s -> t`, can it be that `s -> t = s`?
+  - no. if we expand and substitute: `(s -> t) -> t = s -> t`
+  - we can keep expanding this but it will never be equal
+
+Eduardo's notes:
+```
+Exercise on type derivations
+==================
+
+Q: Is the following expression typable?
+
+let two? = proc(x:int) { if zero?(x-2) then 0 else 1 } in (two? 3)
+
+A: Yes. We may exhibit a type environment Gamma and a type t such that the following typing judgement is derivable:
+
+Gamma |- let two? = proc(x:int) { if zero?(x-2) then 0 else 1 } in (two? 3) : t
+
+In particular, we take Gamma to be the empty type environment {} and t to be the type int. We next show that the resulting typing judgement is derivable:
+
+  ----------TVar  ------------TInt
+    {x:int} |-x:int        {x:int} |-2:int
+  ---------------------------TSub
+         {x:int} |-x-2:int
+ ---------------------TIsZero   ------------TInt  ------------TInt
+   {x:int} |-zero?(x-2):bool               {x:int} |- 0 : int       {x:int} |- 1 : int      
+    --------------------------------------------------------- TITE  --------------------------TVar    ------------------TInt
+       {x:int} |- if zero?(x-2) then 0 else 1 : int                                              {two?:int->int} |- two? : int->int    {two?:int->int} |- 3:int
+ --------------------------------------------TProc                         ---------------------------------------------------TApp
+  {} |- proc(x:int) { if zero?(x-2) then 0 else 1 }: int->int                                 {two?:int->int} |- (two? 3) : int
+-------------------------------------------------------------------------------------------------TLet
+      {} |- let two? = proc(x:int) { if zero?(x-2) then 0 else 1 } in (two? 3) : int
+
+
+
+
+Q: Is the following expression typable?
+
+   x
+
+A: Yes. Take the type environment Gamma to be {x:int} and t to be int. Then the following judgement is derivable:
+
+    {x:int} |- x:int
+
+
+Q: Is the following expression typable?
+
+    zero?(zero?(0))
+
+A: No. For any Gamma and t, the following typing judgement is not derivable:
+
+   Gamma |-  zero?(zero?(0)): t
+
+Indeed, suppose it were. Then t would be bool and we would have the following:
+
+  ------------------------STUCK!!!
+   Gamma |-  zero?(0): int
+ -----------------------------TIsZero
+   Gamma |-  zero?(zero?(0)): bool
+
+
+Q: Is the following expression typable?
+
+    (x x)
+
+A: No. For any Gamma and t, the following typing judgement is not derivable:
+
+   Gamma |- (x x): t
+
+Indeed, suppose it were. Then we would have:
+
+    Gamma(x)=s->t                    Gamma(x)=s
+  ------------------TVar   --------------TVar
+      Gamma |- x:s-> t              Gamma |- x: s
+    --------------------------------------TApp
+                        Gamma |- (x x): t
+
+Typing rule for letrec
+=============
+
+
+ Gamma,id1: t1->t2, id2:t1|- e1 :t2      Gamma,id1:t1->t2 |- e2 : t
+ ----------------------------------------------------------TLetrec
+   Gamma |- letrec id1(id2:t1):t2 = e1 in e2 : t
+
+
+let a=2
+in letrec f(x:int):int = if zero?(x) then 1 else x*(f (x-1))
+in (f 5)
+```
+
+## CHECKED type checker
+- the checker is based on the interpreter
+- new type-checking driver:
+  ```ocaml
+  let chk (e:string) : texpr result =
+    let c = e |> parse |> chk_prog
+    in run_teac c
+  ```
+- new header for the checker:
+  ```ocaml
+  (* common interpreter header *)
+  let rec eval_expr : expr -> exp_val ea_result = fun e ->
+  (* CHECKED checker header *)
+  let rec chk_expr : expr -> texpr tea_result = function 
+  ```
+- the entire type checker is basically a reskinned interpreter
+
+# 4/21
+- instead of doing `eval_expr` constantly, CHECKED has us doing `eval_chk` which does what it sounds like
+- we can rewrite:
+  ```ocaml
+  | IsZero(e) ->
+    eval_chk e1 >>= fun te ->
+    (match te with
+    | IntType -> return BoolType
+    | _ -> error "needed an int")
+  ```
+- with the function keyword:
+  ```ocaml
+  | IsZero(e) ->
+    eval_chk e1 >>= function
+    | IntType -> return BoolType
+    | _ -> error "needed an int"
+  ```
+
+# 4/23
+- in implicit refs
+```ocaml
+utop # interp "
+let a = 2 in
+let f = proc(x){
+  begin
+    set x=x+1;
+    x
+  end }
+in begin
+  (f a);
+  a
+end
+";;
+```
+- why does this return 2 and not 3???
+  - it's the definition of EApp.
+  - we are calling by value, not by reference. the value of a is never actually changed.
+- `value_of_operand` returns a RefVal 
+  - it sees if we're applying the function to an identifier (variable) or just some value
+  - if it's a variable, return that variable's address, otherwise malloc the result and return its address
+- `value_of_operand` and `eval_expr` are mutually recursive
+- back to that code:
+  - let's try this:
+  ```ocaml
+  utop # interp "
+  let a = 2 in
+  let f = proc(x){
+    begin
+      debug(set x=x+1);
+      x
+    end }
+  in begin
+    (f a);
+    a
+  end
+  ";;
+  ```
+  - environment: a = RefVal 0. x = RefVal 0
+    - x points to 0 because we called `(f a)`; to actually return the changed value of a, x must point to a's memory address.
+  - store: 0 -> NumVal 2; 1 -> ProcVal f
+- if we do...
+  ```ocaml
+  utop # interp "
+  let a = 2 in
+  let f = proc(x){
+    let b = 2 in begin
+      debug(set x=x+1;)
+      x
+    end }
+  in begin
+    (f a);
+    debug(a)
+  end
+  ";;
+  ```
+  - where's b? it's int he store but not in the environment because it's only in f, and we have not implemented a garbage collector to clean it out of the store. (we already have one that takes it off the stack.)
+- what is this?
+```ocaml
+utop # interp "
+letrec f (x) = (f x)
+in let g = proc (x) {7} in
+(g (f 2))";;
+```
+  - in implicit-refs and rec, this just hangs. i don't know what point he's trying to make here.
+
+# 4/28
+```ocaml
+utop # interp "
+let a = 2 in
+let f = proc (x) { proc (y) {x+y+x} } in
+((f a) (a + 3))";;
+- : exp_val Implicit_refs.Ds.result = Ok (NumVal 9)
+```
+
+using call-by-ref, which implicit-refs uses:
+```ocaml
+>>Environment:
+[a:=RefVal (4),
+x:=RefVal (6),
+y:=RefVal (7)]
+>>Store:
+0->NumVal 2,
+1->ProcVal (x,Proc(y,Add(Add(Var x,Var y),Var x)),[a:=RefVal (0)]),
+2->NumVal 2,
+3->NumVal 5,
+4->NumVal 2,
+5->ProcVal (x,Proc(y,Add(Add(Var x,Var y),Debug(Var x))),[a:=RefVal (4)]),
+6->NumVal 2,
+7->NumVal 5
+- : exp_val Implicit_refs.Ds.result = Error "Debug called"
+```
+using call-by-name:
+```
+Env:[ 
+  a := RefVal 0
+  x := RefVal 0
+  y := RefVal 2
+]
+Store: [
+  0 <- NumVal 2
+  1 <- ProcVal("x", proc(y){},, [a:=RefVal 0])
+  2 <- Thunk((a + 3), [a := RefVal 0. f := RefVal1])
+]
+```
+- In an application App(e1,e2), if e2 is an identifier, then call-by-name proceeds just like call-by-reference: ... However, if e2 is an expression different from an identifier, then its evaluation does not take place. Rather, e2 together with the current environment are stored for later evaluation. The pair consisting of e2 and the current environment is called a thunk.
+- A thunk is just a closure without the formal parameter.
+  - the contents of a function
+- we use the thunk to freeze the code from the inside of an application
+  - this happens iff that code is an expression
+  - if the application is just to a variable, then the parameter becomes a pointer to that variable.
+
+using call-by-need:
+```
+Env:[ 
+  a := RefVal 0
+  x := RefVal 0
+  y := RefVal 2
+]
+Store: [
+  0 <- NumVal 2
+  1 <- ProcVal("x", proc(y){}, [a:=RefVal 0])
+  2 <- NumVal 5
+]
+```
+- y *used to be* a pointer to a thunk, but it has been evaluated
+- this is similar to memoization
+

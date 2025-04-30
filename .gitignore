@@ -6,3 +6,4 @@
 *.pdf
 /hw3
 /src/*/test
+src/*/_build
