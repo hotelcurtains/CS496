@@ -1586,3 +1586,17 @@ Store: [
 - y *used to be* a pointer to a thunk, but it has been evaluated
 - this is similar to memoization
 
+# 5/2/2025
+- an expression with type `(int -> int -> int) -> int`, not requiring that all formal parameters be used?
+  - `proc (x:(int -> int -> int)) {(((x 1) 1))}`
+  - it looks wrong but we force it to take `(int -> int -> int)` and by applying it twice it's left to return `int`, which is what that type means
+- without letrec, we can only declare local variables with `let` and `proc`
+- expression with type `int -> bool -> bool`, with all formal parameters used?
+  - `proc (j) { proc (i) { if j>1 then i else zero?(1) } }`
+    - forces i to be bool by placing it in the ITE body against a boolean
+    - forces j to be int by comparing it with an int
+    - forced to return a bool because `zero?()` outputs bool and i is assumed to be one
+  - `proc (j) { proc (i) { if i then zero?(j) else zero?(0) } }`
+    - forces i to be a boolean by making it the condition
+    - forces j to be an int as input to `zero?()`
+    - outputs a bool because the conditional returns the output type of `zero?()` i.e. bool

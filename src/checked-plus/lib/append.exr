@@ -1,0 +1,27 @@
+letrec append( xs : list( int )): list( int ) -> list( int ) =
+  proc( ys : list( int )) {
+    if empty?( xs )
+    then ys
+    else cons( hd( xs ) ,(( append tl( xs )) ys ))
+  }
+in let getLST = proc( t : tree int ) {
+  caseT t of {
+    emptytree() -> emptytree( int ) ,
+    node(d , lt , rt ) -> lt } }
+in let getRST = proc( t : tree int ) {
+  caseT t of {
+    emptytree() -> emptytree( int ) ,
+    node(d , lt , rt ) -> rt } }
+in let getData = proc( t : tree int ) {
+  caseT t of {
+    emptytree() -> 0 ,
+    node(d , lt , rt ) -> d } }
+in letrec inorder( x : tree( int )): list( int ) =
+  if empty?( x )
+  then emptylist( int )
+  else(( append( inorder( getLST x ))) cons(( getData x ) ,
+   ( inorder( getRST x ))))
+in
+( inorder node(2 ,
+node(1 , emptytree( int ) , emptytree( int )) ,
+node(3 , emptytree( int ) , emptytree( int ))))
