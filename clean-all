@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/bin/sh
 # clean out all the dune projects automatically.
 for dir in /mnt/c/Users/danie/Documents/GitHub/CS496/src/*; do 
 	cd "$dir/lib"
 	dune clean
 done
+cd /mnt/c/Users/danie/Documents/GitHub/CS496
