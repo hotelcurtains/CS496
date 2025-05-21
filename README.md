@@ -1,38 +1,12 @@
 # Programming Language Fundamentals
 
-These notes and accompanying OCaml source code take a hands-on
-approach in introducing fundamental programming language concepts. 
+[This site](https://cs3110.github.io/textbook/chapters/preface/install.html) 
+has the best advice for setting up OCaml than I could find anywhere else.
+I have it on the Ubuntu WSL2 but it's effectively the same in an Ubuntu VM.
 
-You will need to install:
-* opam: the package manager for OCaml. Follow instructions here: https://opam.ocaml.org/doc/Install.html
-* ocaml: the language we use as host for implementing our interpreters. Follow the instructions here: https://ocaml.org/docs/install.html
-* menhir: the lexer and parser generator.  Just type `opam install menhir`
-* ounit: the unit testing library. Just type `opam install ounit2`
-* dune: the standard build system for OCaml. Just type `opam install dune`
+Run the interpreter for a language with `dune utop` in `src/<language>/lib`.
 
-## Building and Running the Interpreters
+Running the interpreter creates a bunch of extra files to make its next startup quicker.
+If you don't want these files, run `dune clean` in `src/<language>/lib`.
 
-This is a two step process. First you build and install the parser, then you build and run the interpreters.
-
-### Building and Installing the Parser
-
-In the folder src/parser_plaf, type the following
-
-<pre><code>    # dune build
-    # dune install
-</code></pre>
-
-
-### Building and Running the Interpreters
-
-In the folder src/let/lib, type the following 
-
-<pre><code>    # dune utop
-</code></pre>
-
-
-## Upgrading dune/menhir
-
-If you get error "Error: Unbound module MenhirLib.LexerUtil", try `opam upgrade menhir`
-
-If you get "Error: Version 3.2 of dune is not supported.", try `opam upgrade dune`
+`main.pdf` is Professor Bonelli's textbook. The Markdown files contain my notes. The textbook is from at latest September 2025, and my notes are not infallible. Use them at your own risk.

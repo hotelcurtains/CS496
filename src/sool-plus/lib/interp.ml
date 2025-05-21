@@ -1,3 +1,8 @@
+(* 
+@author Daniel Detore
+I pledge my honor that I have abided by the Stevens Honor System.
+*)
+
 open Ds
 open ReM
 open Parser_plaf.Ast
@@ -18,6 +23,9 @@ let g_store = Store.empty_store 20 (NumVal 0)
 (* Global holding class declarations *)
 let g_class_env : class_env ref = ref []
 
+
+let name_mangle (n:string) es =
+  n^"_"^string_of_int (List.length es)
 
 
 (* Initialize contents of g_class_env variable  *)
@@ -42,7 +50,7 @@ let initialize_class_env cs =
     | [] -> []
     | Class (name,super,_impl,_fields,methods)::_  when name=c_name ->
       (List.map (fun (Method(n,_ret_type,pars,body))
-                  -> (n,(List.map fst pars,body,super,List.flatten fss)))
+                  -> name_mangle n pars,(List.map fst pars,body,super,List.flatten fss))
          methods) @ get_methods cs super (List.tl fss) cs
     | Class (_,_,_,_,_)::cs'  | Interface(_,_)::cs'
       -> get_methods cs c_name fss cs'
@@ -53,7 +61,7 @@ let initialize_class_env cs =
       | Class (name,super,_impl,fields,methods)::cs'  ->
         let fss = (List.map fst fields) :: get_fields cs super cs
         in let ms = (List.map (fun (Method(n,_ret_type,pars,body))
-                                -> (n,(List.map fst pars,body,super,List.flatten fss)))
+                                -> name_mangle n pars, (List.map fst pars,body,super,List.flatten fss))
                        methods) @ get_methods cs super (List.tl fss) cs
         in
         g_class_env := (name,(super,List.flatten fss,ms))::!g_class_env;
@@ -94,6 +102,16 @@ let lookup_method : string -> string -> class_env -> method_decl option =
   match List.assoc_opt c_name c_env with
   | None -> None
   | Some (_super,_fs,ms) -> List.assoc_opt m_name ms
+
+
+let rec is_subclass (id1: string) (id2: string) (class_env: class_env) (env: env) =
+  if (id1 = id2) then BoolVal true
+  else (match List.assoc_opt id1 !g_class_env with
+    | None -> BoolVal false
+    | Some (super,_,_) -> is_subclass super id2 class_env env)
+
+let subclass (id1: string) (id2: string) (class_env: class_env) =
+  is_subclass id1 id2 class_env EmptyEnv
 
 let rec apply_method : string -> exp_val -> exp_val list ->
   method_decl -> exp_val ea_result =
@@ -213,17 +231,19 @@ and
      | Some (_super,fields,methods) -> 
        new_env fields >>= fun env ->
        let self = ObjectVal(c_name,env)
-       in (match List.assoc_opt "initialize" methods with
+       in let i = (name_mangle "initialize" args)
+       in (match List.assoc_opt i methods with
            | None -> return self
-           | Some m -> apply_method "initialize" self args m >>= fun _ ->
+           | Some m -> apply_method i self args m >>= fun _ ->
              return self))
   | Send(e,m_name,es) ->
     eval_expr e >>= fun self ->
     obj_of_objectVal self >>= fun (c_name,_) ->
     eval_exprs es >>= fun args ->
-    (match lookup_method c_name m_name !g_class_env with
+    let name = (name_mangle m_name args)
+    in (match lookup_method c_name name !g_class_env with
      | None -> error "Method not found"
-     | Some m -> apply_method m_name self args m)
+     | Some m -> apply_method name self args m)
   | Self ->
     eval_expr (Var "_self")
   | Super(m_name,es) ->
@@ -231,9 +251,10 @@ and
     eval_expr (Var "_super") >>=
     string_of_stringVal >>= fun c_name ->
     eval_expr (Var "_self") >>= fun self ->
-    (match lookup_method c_name m_name !g_class_env with
+    let name = (name_mangle m_name args) in
+    (match lookup_method c_name name !g_class_env with
      | None -> error "Method not found"
-     | Some m -> apply_method m_name self args m)
+     | Some m -> apply_method name self args m)
   (* List operations* *)
   | List(es) ->
     eval_exprs es >>= fun args ->
@@ -255,6 +276,12 @@ and
     eval_expr e >>=
     list_of_listVal >>= fun l ->
     return @@ BoolVal (l=[])   
+  | IsInstanceOf(e, id) -> 
+    eval_expr e >>= obj_of_objectVal >>=
+    fun (name, env) ->
+      (match List.assoc_opt id !g_class_env with
+      | None -> error ("is_subclass: class " ^ id ^ " not found")
+      | Some _ -> return (is_subclass name id !g_class_env env))
   (* Debug *)
   | Debug(_e) ->
     string_of_env >>= fun str_env ->
@@ -276,6 +303,8 @@ and
   fun (AProg(cs, e)) ->
   initialize_class_env cs;   (* Step 1 *) 
   eval_expr e                (* Step 2 *)
+
+
 
 
 (** [interp s] evaluates program [s] *)
